@@ -32,6 +32,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ResultReceiver;
+import android.provider.Settings;
 import android.telecom.CallAudioState;
 import android.telecom.InCallService.VideoCall;
 import android.telecom.PhoneAccount;
@@ -53,13 +54,15 @@ import com.android.incallui.InCallPresenter.IncomingCallListener;
 import com.android.incallui.InCallPresenter.InCallDetailsListener;
 
 import com.android.phone.common.ambient.AmbientConnection;
-import com.android.phone.common.util.StartInCallCallReceiver;
 
+import com.android.phone.common.incall.StartInCallCallReceiver;
 import com.cyanogen.ambient.common.api.AmbientApiClient;
 import com.cyanogen.ambient.incall.InCallServices;
 import com.cyanogen.ambient.incall.extension.OriginCodes;
 import com.cyanogen.ambient.incall.extension.StatusCodes;
 import com.cyanogen.ambient.incall.extension.StartCallRequest;
+
+import cyanogenmod.providers.CMSettings;
 
 import java.util.List;
 import java.util.Objects;
@@ -578,6 +581,13 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
                 QtiCallUtils.hasVoiceCapabilities(mCall));
     }
 
+    private boolean isDeviceProvisionedInSettingsDb(Context context) {
+        return (CMSettings.Secure.getInt(context.getContentResolver(),
+                CMSettings.Secure.CM_SETUP_WIZARD_COMPLETED, 0) != 0)
+                && (Settings.Global.getInt(context.getContentResolver(),
+                Settings.Global.DEVICE_PROVISIONED, 0) != 0);
+    }
+
     /**
      * Updates the buttons applicable for the UI.
      *
@@ -609,7 +619,8 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
                 (QtiCallUtils.hasVideoCapabilities(call) ||
                         QtiCallUtils.hasVoiceCapabilities(call) ||
                         (contactInCallPlugins != null && !contactInCallPlugins.isEmpty())) &&
-                (callState == Call.State.ACTIVE || callState == Call.State.ONHOLD);
+                (callState == Call.State.ACTIVE || callState == Call.State.ONHOLD)
+                && isDeviceProvisionedInSettingsDb(ui.getContext());
 
         final boolean showMute = call.can(android.telecom.Call.Details.CAPABILITY_MUTE);
         final boolean showAddParticipant = call.can(
@@ -628,6 +639,9 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
         ui.showButton(BUTTON_MUTE, showMute);
         ui.showButton(BUTTON_ADD_CALL, showAddCall);
         ui.showButton(BUTTON_UPGRADE_TO_VIDEO, showUpgradeToVideo);
+        if (showUpgradeToVideo) {
+            ui.modifyChangeToVideoButton();
+        }
         ui.showButton(BUTTON_SWITCH_CAMERA, isVideo);
         ui.showButton(BUTTON_PAUSE_VIDEO, isVideo && !useExt);
         ui.showButton(BUTTON_DIALPAD, !isVideo || useExt);
@@ -706,6 +720,7 @@ public class CallButtonPresenter extends Presenter<CallButtonPresenter.CallButto
         void requestCallRecordingPermission(String[] permissions);
         void displayDialpad(boolean on, boolean animate);
         boolean isDialpadVisible();
+        void modifyChangeToVideoButton();
         void displayVideoCallOptions();
         void showInviteSnackbar(PendingIntent inviteIntent, String inviteText);
 
